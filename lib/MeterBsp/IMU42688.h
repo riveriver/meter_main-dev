@@ -140,12 +140,13 @@ class IMU42688 {
   void FullCalibrate_Z();
   void FullCalibrate_Y();
   void ClearZeros();
-  int  processMeasureFSM(); 
+  
   void onMeasureReset();
   void unpackFromC3(unsigned char info);
   void parseImuData(); 
 
  public:
+ int  processMeasureFSM(); 
  to_salve_t send_to_salve;
  void SendTOSlave(to_salve_t *to_salve);
  float acc_raw[3];

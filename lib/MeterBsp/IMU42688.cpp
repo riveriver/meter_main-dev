@@ -12,6 +12,22 @@
 #include <Preferences.h>
 Preferences pref;
 
+float roundToZeroOrFive(float value,int bits) {
+    float decimalPart = value - floor(value);  // 获取小数部分
+    int bits_value = static_cast<int>(decimalPart * pow(10, bits) ) % 10;  // 获取小数点第二位数字
+    if (bits_value > 3 && bits_value < 7) {
+        return floor(value * 10) / 10 + 5 / pow(10, bits);
+    } else if (bits_value <= 3) {
+        return floor(value * 10) / 10;
+    } else if(bits_value >= 7){
+        return floor(value * 10) / 10 + 10 / pow(10, bits);
+    }
+    else{
+      ESP_LOGE("","modifyDecimal ERROR!!!");
+      return value;
+    }
+}
+
 /**
  * @brief Initialize Serial1 and read calibrated data from memory
  * @param [in] Rx : The GPIO for Serial1 RX. default -1.
@@ -21,19 +37,19 @@ void IMU42688::Initialize(byte Rx, byte Tx) {
   Serial1.setRxBufferSize(256);
   Serial1.begin(921600, SERIAL_8N1, Rx, Tx);
 
-  // while (!pref.begin("Angle_Cal", false)) {
-  //   ESP_LOGE("[Warning]","getAngle_Cal Fail");
-  // }
+  while (!pref.begin("Angle_Cal", false)) {
+    ESP_LOGE("[Warning]","getAngle_Cal Fail");
+  }
   // e[0] = pref.getFloat("Ex", 0.0);
-  // e[1] = pref.getFloat("Ey", 0.0);
+  e[1] = pref.getFloat("Ey", 0.0);
   // e[2] = pref.getFloat("Ez", 0.0);
   // s[0] = pref.getFloat("Sx", 1.0);
   // s[1] = pref.getFloat("Sy", 1.0);
   // s[2] = pref.getFloat("Sz", 1.0);
   // b[0] = pref.getFloat("Bx", 0.0);
-  // b[1] = pref.getFloat("By", 0.0);
+  b[1] = pref.getFloat("By", 0.0);
   // b[2] = pref.getFloat("Bz", 0.0);
-  // pref.end();
+  pref.end();
 
 } 
 
@@ -221,15 +237,15 @@ byte IMU42688::Update() {
     || (AngleStdShow[1] >   90.0f && AngleStdShow[1] <  135.0f)
     || (AngleStdShow[1] > -180.0f && AngleStdShow[1] < -135.0f)
     || (AngleStdShow[1] > - 90.0f && AngleStdShow[1] < - 45.0f)){
-      manage.set_live_arrow_angle(0);
+      manage.set_arrow_live(0);
     }
     else if( (AngleStdShow[1] >   45.0f && AngleStdShow[1] <    90.0f)
           || (AngleStdShow[1] >  135.0f  && AngleStdShow[1] <  180.0f)
           || (AngleStdShow[1] > -135.0f  && AngleStdShow[1] < - 90.0f)
           || (AngleStdShow[1] > - 45.0f  && AngleStdShow[1] < -  0.0f)){
-      manage.set_live_arrow_angle(1);
+      manage.set_arrow_live(1);
     }
-    else{manage.set_live_arrow_angle(2);}
+    else{manage.set_arrow_live(2);}
     /* [-180,+180] --> [-90,+90]*/
     if(AngleStd[1] >  90.0f){AngleStd[1] = AngleStd[1] - 180.0f;}
     if(AngleStd[1] < -90.0f){AngleStd[1] = AngleStd[1] + 180.0f;}
@@ -238,7 +254,7 @@ byte IMU42688::Update() {
     if(AngleStdShow[1] >  90.0f){AngleStdShow[1] = AngleStdShow[1] - 180.0f;}
     if(AngleStdShow[1] < -90.0f){AngleStdShow[1] = AngleStdShow[1] + 180.0f;}
     AngleUserShow[1] = fabs(AngleStdShow[1]);
-    manage.set_live_angle(AngleUserShow[1]);
+    manage.set_angle_live(roundToZeroOrFive(AngleUserShow[1],2));
     ErrorCode = IMU_Update_Success;
     Have_New_Data_for_Collect = true;
 
@@ -867,21 +883,7 @@ void IMU42688::SendTOSlave(to_salve_t *to_salve) {
   Serial1.print(dataString);
 }
 
-float roundToZeroOrFive(float value,int bits) {
-    float decimalPart = value - floor(value);  // 获取小数部分
-    int bits_value = static_cast<int>(decimalPart * pow(10, bits) ) % 10;  // 获取小数点第二位数字
-    if (bits_value > 3 && bits_value < 7) {
-        return floor(value * 10) / 10 + 5 / pow(10, bits);
-    } else if (bits_value <= 3) {
-        return floor(value * 10) / 10;
-    } else if(bits_value >= 7){
-        return floor(value * 10) / 10 + 10 / pow(10, bits);
-    }
-    else{
-      ESP_LOGE("","modifyDecimal ERROR!!!");
-      return value;
-    }
-}
+
 
 // void SetParam(int num, uint8_t mode) {
 //   if (num < 3) {
@@ -917,43 +919,46 @@ void IMU42688::onMeasureReset() {
 }
 
 int IMU42688::processMeasureFSM() {
-  if(measure_state == IDLE){
-    return measure_state;
-  }
+  byte state = manage.clino.measure.state;
+  measure_source = AngleUser[1];
+  if(state == IDLE){return state;}
 
-  if (measure_state == MEASURE_DONE 
-   || measure_state == UPLOAD_DONE) {
+  if (state == MEASURE_DONE || state == UPLOAD_DONE) {
     if(fabs(measure_source - hold_ref) > UNHOLD_TH){
       onMeasureReset();
-      return measure_state = IDLE;
+      manage.set_progress(0);
+      return state = IDLE;
     }
+    return state;
   }
 
-  if(measure_state == MEASURING){
+  // if(state == MEASURING){
     if(fabs(measure_source - stable_ref) > UNSTABLE_TH){
       onMeasureReset();
-      return measure_state == UNSTABLE;
+      stable_ref = measure_source;
+      return state == UNSTABLE;
     }
     measure_sum += measure_source;
     measure_count++;
-    measuring_percent = measure_count * 100 / measure_total;
+    manage.set_progress(measure_count * 100 / measure_total);
     if(measure_count == measure_total){
-      manage.set_hold_angle(roundToZeroOrFive(measure_sum / measure_total,2));
+      manage.hold_clinometer(roundToZeroOrFive(measure_sum / measure_total,2),manage.clino.arrow_live);
       manage.set_hold_flat(manage.get_live_flat());
       onMeasureReset();
-      return measure_state = MEASURE_DONE;
+      return state = MEASURE_DONE;
     }
-  }
+    return state = MEASURING;
+  // }
 
-  if(measure_state == UNSTABLE){
-    if(fabs(measure_source - stable_ref) > UNSTABLE_TH){
-      onMeasureReset();
-    }
-    if(stable_count == stable_total){
-      onMeasureReset();
-      return measure_state == MEASURING;
-    }
-    stable_count++;
-  }
-  return measure_state;
+  // if(state == UNSTABLE){
+  //   if(fabs(measure_source - stable_ref) > UNSTABLE_TH){
+  //     onMeasureReset();
+  //   }
+  //   if(stable_count == stable_total){
+  //     onMeasureReset();
+  //     return state == MEASURING;
+  //   }
+  //   stable_count++;
+  // }
+  // return state;
 }

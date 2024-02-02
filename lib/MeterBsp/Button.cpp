@@ -45,7 +45,8 @@ void Button::Update() {
   // process
   LastPress = millis();
   if (Press[3] && CanMeasure()) {
-    pMeasure->Switch(true);
+    // pMeasure->Switch(true);
+    manage.state_clinometer_measure();
     *(pBLEState + 8) = *(pBLEState + 6);
   }
   switch (manage.page) {

@@ -26,7 +26,7 @@ class Flatness
 private: 
     const bool debug_mode = 1;
     const bool Serial_Print_Param       = true;  /** @brief True if require printing the I2C scanning result in Setup.*/
-    const bool Serial_Print_Raw_Data    = true;   /** @brief True if require printing the Raw Data while Update.*/
+    const bool Serial_Print_Raw_Data    = false;   /** @brief True if require printing the Raw Data while Update.*/
     const bool Serial_Print_Distance    = false;   /** @brief True if require printing the Distance while Update.*/
     const int   Cut_Off_Voltage = 2000;/** @brief Cut-off voltage*/
     const float Cut_Off_Distance = 99.9f;/** @brief Cut-off Distance*/

@@ -215,7 +215,7 @@ static void SEND(void *pvParameter) {
 
     if (measure.State == measure.Measure_Done && ble.State.Send_Info) {
       ble.State.Send_Info = false;
-      ble.SendAngle(manage.get_hold_angle());
+      ble.SendAngle(manage.clino.angle_hold);
       ble.SendFlatness(manage.get_hold_flat());
       measure.State = measure.Send_Done;
     }
@@ -282,6 +282,8 @@ static void UART(void *pvParameter) {
         imu.CalStop();
       }
     }    
-    measure.AccurateMeasure();
+    // measure.AccurateMeasure();
+    manage.clino.measure.state = imu.processMeasureFSM();
+
   }
 }

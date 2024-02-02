@@ -23,11 +23,13 @@ extern Meter manage;
 class OLED
 {
 private:
-    uint8_t IO_VCC        = 0;
-    uint8_t R_now         = 0;
     int     Timer         = 0;
     bool    direction     = 0;
     bool    isU8g2Begin   = false;
+    byte IO_VCC        = 0;
+    byte R_now         = 0;
+    byte measure_state;
+    byte measure_progress;
     String  BlockInfo;
     void DoBlock();
     void DrawNum_10x16(int x, int y, String f);

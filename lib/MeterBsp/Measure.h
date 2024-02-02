@@ -171,8 +171,9 @@ class Measure {
       MeasurePercent = (MeasureCount[i] * 100 / MeasureCountNum[i]);
       // If measure complete
       if (MeasureCount[i] == MeasureCountNum[i]) {
-        float result = Measure[i] / MeasureCountNum[i];
-        manage.set_hold_angle(result);
+        // float result = Measure[i] / MeasureCountNum[i];
+        // TODO
+        manage.hold_clinometer(Measure[i] / MeasureCountNum[i],manage.clino.arrow_live);
         manage.set_hold_flat(manage.get_live_flat());
         // HACK 开灯
         MeasureCount[i] = 0;

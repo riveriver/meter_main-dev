@@ -39,28 +39,44 @@ enum BIE_COM_DEFINE{
   VERSION_HARDWARE_BASE = 9,
 };
 
+enum MEASURE_STATE{
+  IDLE,
+  UNSTABLE,
+  MEASURING,
+  MEASURE_DONE,
+  UPLOAD_DONE,
+};
+
+
 class Meter{
 private:
 struct Calibration{
   uint8_t step = 0;
   uint8_t status = 0;
 };
+struct Measure{
+  byte state = 0;
+  byte progress = 0;
+};
 struct ClinoMeter{
-  float angle = 0.0f;
-  float slope = 0.0f;
-  uint8_t arrow = 0;
+  float angle_live = 0.0f;
+  float angle_hold = 0.0f;
+  byte  arrow_live = 0;
+  byte  arrow_hold = 0;
+  Measure measure;
 };
 struct FlatnessMeter{
   float flat = 0.0f;
   uint8_t arrow = 0;
 };
-ClinoMeter    clino_hold;
+// ClinoMeter    clino_hold;
 FlatnessMeter flat_hold;
-ClinoMeter    clino_live;
+// ClinoMeter    clino;
 FlatnessMeter flat_live;
 Preferences   pref;
 public:
-  int software_version = 507;
+  ClinoMeter  clino;
+  int software_version = 701;
   int hardware_version = 201;
   int imu_version = 0;
   uint8_t meter_type = 1;
@@ -87,39 +103,54 @@ public:
   bool    has_flat_forward = false;
   String  cali_forward_str = "";
 
-  void  set_live_angle(float value){
-    if (clino_live.arrow == 0) {clino_live.angle = -value;} 
-    else{clino_live.angle = value;}}
-  void  set_hold_angle(float value){
-    clino_hold.arrow = clino_live.arrow;
-    if (clino_hold.arrow == 0) {clino_hold.angle = -value;} 
-    else{clino_hold.angle = value;}}
+  void set_angle_live(float value){
+    byte arrow = clino.arrow_live;
+    if (arrow == 0) {clino.angle_live = -value;} 
+    else if(arrow == 1){clino.angle_live = value;}
+    else{ESP_LOGE("","arrow:%d",arrow);}
+  }
+  void set_arrow_live(int value){clino.arrow_live = value;}
+  void set_progress(int value){
+    if(value < 0 || value > 100){
+      return;}
+    clino.measure.progress = value;
+  }
+  void hold_clinometer(float angle,int arrow){
+    // clino.angle_hold = clino.angle_live;
+    clino.angle_hold = angle;
+    // clino.arrow_hold = clino.arrow_live;
+    clino.arrow_hold = arrow;
+  }
+  void state_clinometer_measure(){
+    if(clino.measure.state == IDLE 
+    || clino.measure.state == MEASURE_DONE 
+    || clino.measure.state == UPLOAD_DONE){
+      clino.measure.state = UNSTABLE;
+    }
+  }
   void  set_live_flat(float value){flat_live.flat = value;}
   void  set_hold_flat(float value){flat_hold.flat = value;}
-  void  set_live_arrow_angle(int value){clino_live.arrow = value;}
-  float get_live_angle(){return clino_live.angle;}
-  float get_hold_angle(){return clino_hold.angle;}
   float get_live_flat() {return flat_live.flat;}
   float get_hold_flat() {return flat_hold.flat;}
-  uint8_t get_live_arrow(){return clino_live.arrow;}
-  uint8_t get_hold_arrow(){return clino_hold.arrow;}
 
   void initMeter(){
-    // while(!pref.begin("Meter",false)){
-    //     Serial.println(F("[initMeter]getMeter Fail"));
-    // }
-    // meter_type = pref.getInt("Type",11);
-    // home_mode  = pref.getInt("Home",0);
-    // pref.end();
+    while(!pref.begin("Meter",false)){
+        Serial.println(F("[initMeter]getMeter Fail"));
+    }
+    meter_type = pref.getInt("Type",11);
+    home_mode  = pref.getInt("Home",0);
+    pref.end();
   // init home_size
-    // if(meter_type > 10){
-    //   home_size = 4;
-    // }
-    // else {home_size = 2;}
-    meter_type = 11;
-    home_mode  = 0;
-    home_size  = 2;
+    if(meter_type > 10){
+      home_size = 4;
+    }
+    else {home_size = 2;}
+    // meter_type = 11;
+    // home_mode  = 0;
+    // home_size  = 2;
     home_mode = home_mode % home_size;
+    pinMode(12,OUTPUT); 
+    digitalWrite(12,HIGH);
   }
 
   void putMeterType(){

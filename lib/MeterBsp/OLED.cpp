@@ -509,13 +509,13 @@ void OLED::ImuCalibration() {
 
 void OLED::ProcessAngleShow(float *ui_show) {
   float out;
-  if (pMeasure->State == pMeasure->Measure_Done ||
-      pMeasure->State == pMeasure->Send_Done) {
-    out = manage.get_hold_angle();
+  if (measure_state == MEASURE_DONE ||
+     measure_state == UPLOAD_DONE) {
+    out = manage.clino.angle_hold;
   }else {
-    out = manage.get_live_angle();
+    out = manage.clino.angle_live;
   }
-  Warning(out,0.0f);
+  // Warning(out,0.0f);
   *ui_show = out;
   
 }
@@ -523,12 +523,12 @@ void OLED::ProcessAngleShow(float *ui_show) {
 void OLED::DrawMinorArrow() {
   // just satify use cases:shkp
   uint8_t arrow;
-  if (pMeasure->State == pMeasure->Measure_Done ||
-      pMeasure->State == pMeasure->Send_Done) {
-    arrow = manage.get_hold_arrow();
+  if (measure_state == MEASURE_DONE ||
+     measure_state == UPLOAD_DONE) {
+    arrow = manage.clino.angle_hold;
   }
   else{
-    arrow = manage.get_live_arrow();
+    arrow = manage.clino.angle_live;
   }
   if (pIMU->Gravity == 3 || pIMU->Gravity == 0) {
     if (arrow == 1) {
@@ -594,12 +594,12 @@ void OLED::DrawMinorArrow() {
 
 void OLED::DrawPrimaryArrow() {
   uint8_t arrow;
-  if (pMeasure->State == pMeasure->Measure_Done ||
-      pMeasure->State == pMeasure->Send_Done) {
-    arrow = manage.get_hold_arrow();
+  if (measure_state == MEASURE_DONE ||
+     measure_state == UPLOAD_DONE) {
+    arrow = manage.clino.arrow_hold;
   }
   else{
-    arrow = manage.get_live_arrow();
+    arrow = manage.clino.arrow_live;
   }
   if (arrow == 1) {
     display.drawXBM(  2,  3, 13, 13, bitmap_up_0);       // left_up
@@ -648,16 +648,16 @@ void OLED::DrawMinorCommon() {
     if (pIMU->fWarmUp < 100) {
       Timer = 0;
       display_s.drawBox(px[0], py[0], pIMU->fWarmUp * l / 100, py[1]);
-    } else if (pMeasure->State == pMeasure->Not_Stable) {
+    } else if (measure_state == UNSTABLE) {
       Timer %= (l - px[1]) * 2;
       display_s.drawBox((Timer > (l - px[1])) ? px[0] + (l - px[1]) * 2 - Timer
                             : px[0] + Timer,py[0], px[1], py[1]);
-    } else if (pMeasure->State == pMeasure->Measuring) {
+    } else if (measure_state == MEASURING) {
       Timer %= (l - px[1]) * 2;
-      display_s.drawBox(px[0], py[0], pMeasure->MeasurePercent * l /100, py[1]);
+      display_s.drawBox(px[0], py[0], measure_progress * l /100, py[1]);
     } 
-    else if (pMeasure->State == pMeasure->Measure_Done ||
-               pMeasure->State == pMeasure->Send_Done) {
+    else if (measure_state == MEASURE_DONE ||
+              measure_state == UPLOAD_DONE) {
       Timer = 0;
       display_s.drawBox(px[0], py[0], l, py[1]);
     }
@@ -670,16 +670,16 @@ void OLED::DrawMinorCommon() {
     if (pIMU->fWarmUp < 100) {
       Timer = 0;
       display_s.drawBox(px[0], py[0], pIMU->fWarmUp * l / 100, py[1]);
-    } else if (pMeasure->State == pMeasure->Not_Stable) {
+    } else if (measure_state == UNSTABLE) {
       Timer %= (l - px[1]) * 2;
       display_s.drawBox((Timer > (l - px[1]))? px[0] + (l - px[1]) * 2 - Timer
                             : px[0] + Timer,py[0], px[1], py[1]);
-    } else if (pMeasure->State == pMeasure->Measuring) {
+    } else if (measure_state == MEASURING) {
       Timer %= (l - px[1]) * 2;
-      display_s.drawBox(px[0], py[0], pMeasure->MeasurePercent * l / 100, py[1]);
+      display_s.drawBox(px[0], py[0], measure_progress * l / 100, py[1]);
     } 
-    else if (pMeasure->State == pMeasure->Measure_Done ||
-               pMeasure->State == pMeasure->Send_Done) {
+    else if (measure_state == MEASURE_DONE ||
+              measure_state == UPLOAD_DONE) {
       Timer = 0;
       display_s.drawBox(px[0], py[0], l, py[1]);
     }
@@ -708,15 +708,14 @@ void OLED::DrawPrimaryCommon() {
   if (pIMU->fWarmUp < 100) {
     Timer = 0;
     display.drawBox(px[0], py[0], pIMU->fWarmUp * l / 100, py[1]);
-  } else if (pMeasure->State == pMeasure->Not_Stable) {
+  } else if (measure_state == UNSTABLE) {
     Timer %= (l - px[1]) * 2;
     display.drawBox((Timer > (l - px[1])) ? px[0] + (l - px[1]) * 2 - Timer 
                     : px[0] + Timer,py[0], px[1], py[1]);
-  } else if (pMeasure->State == pMeasure->Measuring) {
+  } else if (measure_state == MEASURING) {
     Timer %= (l - px[1]) * 2;
-    display.drawBox(px[0], py[0], pMeasure->MeasurePercent * l/ 100, py[1]);
-  } else if (pMeasure->State == pMeasure->Measure_Done ||
-             pMeasure->State == pMeasure->Send_Done) {
+    display.drawBox(px[0], py[0], measure_progress * l/ 100, py[1]);
+  } else if (measure_state == MEASURE_DONE || measure_state == UPLOAD_DONE) {
     Timer = 0;
     display.drawBox(px[0], py[0], l, py[1]);
   }
@@ -765,8 +764,8 @@ void OLED::DrawMinorSlope() {
 
 void OLED::DrawPrimaryFlat() {
   char ui_show[8];
-  if (pMeasure->State == pMeasure->Measure_Done ||
-    pMeasure->State == pMeasure->Send_Done) {
+  if (measure_state == MEASURE_DONE ||
+   measure_state == UPLOAD_DONE) {
     dtostrf(manage.get_hold_flat(), 7, 1, ui_show);
   } else {
     dtostrf(manage.get_live_flat(), 7, 1, ui_show);
@@ -779,8 +778,8 @@ void OLED::DrawPrimaryFlat() {
 
 void OLED::DrawMinorFlat() {
   char ui_show[8];
-  if (pMeasure->State == pMeasure->Measure_Done ||
-    pMeasure->State == pMeasure->Send_Done) {
+  if (measure_state == MEASURE_DONE ||
+   measure_state == UPLOAD_DONE) {
     dtostrf(manage.get_hold_flat(), 7, 1, ui_show);
   } else {
     dtostrf(manage.get_live_flat(), 7, 1, ui_show);
@@ -800,8 +799,8 @@ void OLED::DrawPrimaryFlatSlope() {
   float ui_angle = 0;
   ProcessAngleShow(&ui_angle);
   char ui_flat[8];
-  if (pMeasure->State == pMeasure->Measure_Done ||
-    pMeasure->State == pMeasure->Send_Done) {
+  if (measure_state == MEASURE_DONE ||
+   measure_state == UPLOAD_DONE) {
     dtostrf(manage.get_hold_flat(), 7, 1, ui_flat);
   } else {
     dtostrf(manage.get_live_flat(), 7, 1, ui_flat);
@@ -818,8 +817,8 @@ void OLED::DrawMinorFlatSlope() {
   float ui_angle = 0;
   ProcessAngleShow(&ui_angle);
   char ui_flat[8];
-  if (pMeasure->State == pMeasure->Measure_Done ||
-    pMeasure->State == pMeasure->Send_Done) {
+  if (measure_state == MEASURE_DONE ||
+   measure_state == UPLOAD_DONE) {
     dtostrf(manage.get_hold_flat(), 7, 1, ui_flat);
   } else {
     dtostrf(manage.get_live_flat(), 7, 1, ui_flat);
@@ -850,7 +849,9 @@ void OLED::Update() {
   if (millis() < manage.block_time) {
     return;
   }
-
+  
+  measure_state =  manage.clino.measure.state;
+  measure_progress = manage.clino.measure.progress;
   display.setDisplayRotation(U8G2_R2); 
   if (ifSwitchHome() == false) {
     switch (manage.page) {
@@ -990,17 +991,18 @@ bool OLED::ifSwitchHome() {
 
 void OLED::Warning(float angle, float dist) {
   manage.warrning_mode = 2;
-  manage.warrning_angle = 45.0f;
+  manage.warrning_angle = 10.0f;
   uint8_t light_flag = 1;  
   // no_light_mode:off light
   if (manage.warrning_mode != 2) {
     pLED->Set(0, 0, 0, 4);
     pLED->Set(1, 0, 0, 4);
     pLED->Update();
+    if(digitalRead(12) == LOW){digitalWrite(12,HIGH);}
     return;
   }
-  if (pMeasure->State == pMeasure->Measure_Done ||
-      pMeasure->State == pMeasure->Send_Done) {
+  if (measure_state == MEASURE_DONE ||
+     measure_state == UPLOAD_DONE) {
     // if (manage.home_mode == 3 || manage.home_mode == 4) {
     //   if (dist > manage.warrning_flat) {
     //     light_flag = 2;
@@ -1009,13 +1011,14 @@ void OLED::Warning(float angle, float dist) {
       if (angle > manage.warrning_angle) {
         light_flag = 2;
     }
-
     if (light_flag == 2) {
       pLED->Set(0, pLED->R, 1, 4);
       pLED->Set(1, pLED->R, 1, 4);
+      if(digitalRead(12) == LOW){digitalWrite(12,HIGH);}
     } else if (light_flag == 1) {
       pLED->Set(0, pLED->G, 1, 4);
       pLED->Set(1, pLED->G, 1, 4);
+      if(digitalRead(12) == HIGH){digitalWrite(12,LOW);}
     } else {
       ESP_LOGE("USER","Warrning():light_flag = %d", light_flag);
     }
@@ -1024,5 +1027,6 @@ void OLED::Warning(float angle, float dist) {
     pLED->Set(0, 0, 0, 4);
     pLED->Set(1, 0, 0, 4);
     pLED->Update();
+    if(digitalRead(12) == LOW){digitalWrite(12,HIGH);}
   }
 }
